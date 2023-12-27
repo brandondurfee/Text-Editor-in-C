@@ -42,7 +42,8 @@ typedef struct erow {
 // global editor state
 struct editorConfig {
     int cx, cy; // for cursor location
-    int rowoff;
+    int rowoff; // row offset
+    int coloff; // column offset
     int screenrows; // number of screen rows in the editor
     int screencols; // number of screen cols in the editor
     int numrows; // number of erows in the editor (rows of actual text)
@@ -214,6 +215,12 @@ void editorScroll() {
     if (E.cy >= E.rowoff + E.screenrows) {
         E.rowoff = E.cy - E.screenrows + 1;
     }
+    if (E.cx < E.coloff) {
+        E.coloff = E.cx;
+    }
+    if (E.cx >= E.coloff + E.screencols) {
+        E.coloff = E.cx - E.screencols + 1;
+    }
 }
 
 // method that draws the editor in the terminal
@@ -246,9 +253,10 @@ void editorDrawRows(struct abuf *ab) {
                 abAppend(ab, "~", 1);
             }
         } else { // y is in the editor where there is some text / erow
-            int len = E.row[filerow].size; // len of the row at y
+            int len = E.row[filerow].size - E.coloff; // len of the row - the column offset
+            if (len < 0) len = 0; // if we scroll past the end of a line
             if (len > E.screencols) len = E.screencols; // cut off len at screencols if len > screencols
-            abAppend(ab, E.row[filerow].chars, len); // print the char buffer at E.row[y]
+            abAppend(ab, &E.row[filerow].chars[E.coloff], len); // print the char buffer at E.row[filerow]
         }
         abAppend(ab, "\x1b[K", 3);
         if (y < E.screenrows - 1) { // create a new line for each row
@@ -270,7 +278,7 @@ void editorRefreshScreen() {
     editorDrawRows(&ab);
 
     char buf[32];
-    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, E.cx + 1);
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.cy - E.rowoff) + 1);
     abAppend(&ab, buf, strlen(buf));
     
     abAppend(&ab, "\x1b[?25h", 6);
@@ -290,9 +298,7 @@ void editorMoveCursor(int key) {
             }
             break;
         case ARROW_RIGHT:
-            if (E.cx != E.screencols - 1) {
-                E.cx++;
-            }
+            E.cx++;
             break;
         case ARROW_UP:
             if (E.cy != 0) {
@@ -394,6 +400,7 @@ void initEditor() {
     E.cx = 0; // initializes the cursor to position 0,0
     E.cy =  0;
     E.rowoff = 0; // initialize the row offset to 0 so scrolled to the top of the file by default
+    E.coloff = 0;
     E.numrows = 0; // initializes the number of text rows to 0
     E.row = NULL; // no text rows, so pointer is null
 
