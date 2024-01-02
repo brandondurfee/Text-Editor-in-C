@@ -543,6 +543,8 @@ char *editorPrompt(char *prompt) {
             editorSetStatusMessage("");
             free(buf);
             return NULL;
+        } else if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
+            if (buflen != 0) buf[--buflen] = '\0';
         } else if (c == '\r') {
             if (buflen != 0) {
                 editorSetStatusMessage("");
